@@ -1,0 +1,63 @@
+# Deploy automático para GitHub Pages
+# Sempre que você fizer push para a branch 'main', este workflow
+# faz o build do Next.js e publica o site estático no GitHub Pages.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Permite rodar manualmente pela aba Actions
+  workflow_dispatch:
+
+# Permissões necessárias para o GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Permite apenas um deploy por vez
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Instalar dependências
+        run: bun install --frozen-lockfile || bun install
+
+      - name: Build estático do Next.js
+        env:
+          GITHUB_ACTIONS: "true"
+        run: bun run build:static
+
+      - name: Upload do artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy para GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
